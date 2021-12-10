@@ -114,24 +114,7 @@ def get_mag_sun(name, AB=True):
     else:
         return row['Vega']
     
-
-def ln_prob_red(theta, lumins, metal, metal_e, ebv, ebv_e):                             
-    lnprob = ((metal - theta[0]) / metal_e)**2 / 2
-    lnprob += ((ebv - theta[3]) / ebv_e)**2 / 2
-    for lumin, lumin_e, reddening, grid in lumins:
-        lnprob += ((lumin - theta[3] * reddening - (grid(theta[0], theta[1])[0][0] + theta[2])) / lumin_e)**2 / 2
-    return -lnprob
-
-def ln_prob_bi_red_fast(theta, lumins, metal, metal_ivar2, ebv, ebv_ivar2, ebv2, ebv2_ivar2):
-    lnprob = (metal - theta[0])**2 * metal_ivar2
-    red = -(ebv - theta[3])**2 * ebv_ivar2
-    red_2 = -(ebv2 - theta[3])**2 * ebv2_ivar2
-    lnprob += -np.logaddexp(red, red_2)
-    for lumin, lumin_ivars2, reddening, grid in lumins:
-        lnprob += (lumin - theta[3] * reddening - grid(theta[0], theta[1])[0][0] + theta[2])**2 * lumin_ivars2
-    return -lnprob
-
-def ln_prop_bi_varred_fast(theta, lumins, metal, metal_ivar2, AV, AV_ivar2, AV2, AV2_ivar2):
+def ln_prop(theta, lumins, metal, metal_ivar2, AV, AV_ivar2, AV2, AV2_ivar2):
     lnprob = (metal - theta[0])**2 * metal_ivar2
     red = -(AV - theta[3])**2 * AV_ivar2
     red_2 = -(AV2 - theta[3])**2 * AV2_ivar2
@@ -139,43 +122,8 @@ def ln_prop_bi_varred_fast(theta, lumins, metal, metal_ivar2, AV, AV_ivar2, AV2,
     for lumin, lumin_ivars2, reddening_grid, grid in lumins:
         lnprob += (lumin - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + theta[2])**2 * lumin_ivars2
     return -lnprob
-
-def ln_prob_bi_red(theta, lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e): 
-    lnprob = ((metal - theta[0]) / metal_e)**2 / 2
-    red = -((ebv - theta[3]) / ebv_e)**2 / 2
-    red_2 = -((ebv2 - theta[3]) / ebv2_e)**2 / 2    
-    lnprob += -np.logaddexp(red, red_2)
-    for lumin, lumin_e, reddening, grid in lumins:
-        lnprob += ((lumin - theta[3] * reddening - (grid(theta[0], theta[1])[0][0] + theta[2])) / lumin_e)**2 / 2
-    return -lnprob
-    
-def ln_prob(theta, lumins, metal, metal_e):
-    lnprob = ((metal - theta[0]) / metal_e)**2 / 2
-    for lumin, lumin_e, reddening, grid in lumins:
-        lnprob += ((lumin - (grid(theta[0], theta[1])[0][0] + theta[2])) / lumin_e)**2 / 2
-    return -lnprob  
-
-def ln_prior(theta):
-    
-    if theta[0] > 0.7 or theta[0] < -3.0:
-        return -np.inf
-    if theta[1] > 15.84 or theta[1] < 0.1:
-        return -np.inf
-    else:
-        return 0.  
-
-def ln_prior_red(theta):
-    
-    if theta[0] > 0.7 or theta[0] < -3.0:
-        return -np.inf
-    if theta[1] > 15.84 or theta[1] < 0.1:
-        return -np.inf
-    if theta[3] < 0.:
-        return -np.inf    
-    else:
-        return 0.
         
-def prior_red(theta, metal_lower, metal_upper, age_lower, age_upper, ebv_lower, ebv_upper):
+def prior(theta, metal_lower, metal_upper, age_lower, age_upper, ebv_lower, ebv_upper):
     if theta[0] > metal_upper or theta[0] < metal_lower:
         return -np.inf
     if theta[1] > age_upper or theta[1] < age_lower:
@@ -185,7 +133,7 @@ def prior_red(theta, metal_lower, metal_upper, age_lower, age_upper, ebv_lower, 
     else:
         return 0.
         
-class pt_ln_prior_red:
+class ln_prior:
     
     def __init__(self, metal_lower=-3.0, metal_upper=0.7, age_lower=0.1,
                  age_upper=15.84, ebv_lower=0., ebv_upper=np.inf):
@@ -199,39 +147,8 @@ class pt_ln_prior_red:
     def __call__(self, x):
         return prior_red(x, self.metal_lower, self.metal_upper, self.age_lower,
                          self.age_upper, self.ebv_lower, self.ebv_upper)
-        
-def em_ln_prob_red(theta, lumins, metal, metal_e, ebv, ebv_e):
-    return ln_prob_red(theta, lumins, metal, metal_e, ebv, ebv_e) + ln_prior_red(theta)
-
-def em_ln_prob_bi_red(theta, lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e):
-    return ln_prob_bi_red(theta, lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e) + ln_prior_red(theta)
-
-def em_ln_prob(theta, lumins, metal, metal_e):
-    return ln_prob(theta, lumins, metal, metal_e) + ln_prior(theta)
-    
-class pt_ln_prob:
-    
-    def __init__(self, lumins, metal, metal_e):
-        self.lumins = lumins
-        self.metal = metal    
-        self.metal_e = metal_e
-        
-    def __call__(self, x):
-        return ln_prob(x, self.lumins, self.metal, self.metal_e)
-    
-class pt_ln_prob_red:
-    
-    def __init__(self, lumins, metal, metal_e, ebv, ebv_e):
-        self.lumins = lumins
-        self.metal = metal    
-        self.metal_e = metal_e
-        self.ebv = ebv
-        self.ebv_e = ebv_e
-        
-    def __call__(self, x):
-        return ln_prob_red(x, self.lumins, self.metal, self.metal_e, self.ebv, self.ebv_e)
-    
-class pt_ln_prob_bi_red:
+            
+class ln_prob:
     
     def __init__(self, lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e):
         self.lumins = lumins
@@ -243,12 +160,12 @@ class pt_ln_prob_bi_red:
         self.ebv2_e = ebv2_e        
         
     def __call__(self, x):
-        return ln_prob_bi_red(x, self.lumins, self.metal, self.metal_e,
-                              self.ebv, self.ebv_e, self.ebv2, self.ebv2_e)    
+        return ln_prob(x, self.lumins, self.metal, self.metal_e,
+                       self.ebv, self.ebv_e, self.ebv2, self.ebv2_e)    
     
 
 def calc_age_mass(luminosities, metal, metal_e, ebv, ebv_e, grids=None,
-                  plot=False, age_guess=8, mass_guess=5.3, sampler_type='PT',
+                  plot=False, age_guess=8, mass_guess=5.3,
                   nwalkers=1000, steps=500, thin=10, keep_chain=False,
                   threads=4, metal_lower=-3.0, metal_upper=0.7, age_lower=0.1,
                   age_upper=15.84, ebv_lower=0., ebv_upper=np.inf, ebv2=0,
@@ -309,49 +226,16 @@ def calc_age_mass(luminosities, metal, metal_e, ebv, ebv_e, grids=None,
     
     start = np.asarray(start).T
 
-    if sampler_type == 'PT':
-        
-        temp_start = []
-        for i in range(ntemps):
-            temp_start.append(start)
-        temp_start = np.array(temp_start)
 
-        if ebv_e == 0:
-            logl = pt_ln_prob(lumins, metal, metal_e) 
-            sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl,
-                                      ln_prior, threads=threads, ntemps=ntemps)
-        elif ebv2_e == 0:
-            logl = pt_ln_prob_red(lumins, metal, metal_e, ebv, ebv_e) 
-            logprior = pt_ln_prior_red(metal_lower, metal_upper, age_lower,
-                                       age_upper, ebv_lower, ebv_upper)
-            sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
-                                      threads=threads, ntemps=ntemps)
-        else:
-            logl = pt_ln_prob_bi_red(lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e) 
-            logprior = pt_ln_prior_red(metal_lower, metal_upper, age_lower,
-                                       age_upper, ebv_lower, ebv_upper)
-            sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
+    logl = ln_prob(lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e) 
+    logprior = ln_prior(metal_lower, metal_upper, age_lower,
+                        age_upper, ebv_lower, ebv_upper)
+    sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
                                       threads=threads, ntemps=ntemps)
             
         sampler.run_mcmc(temp_start, (nburn + steps))
         samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))
-        
-    else:
-        if ebv_e == 0:
-            sampler = emcee.EnsembleSampler(nwalkers, start.shape[-1],
-                    em_ln_prob, args=(lumins, metal, metal_e), threads=threads) 
-        elif ebv2_e == 0:
-            sampler = emcee.EnsembleSampler(nwalkers, start.shape[-1],
-                    em_ln_prob_red, threads=threads,
-                    args=(lumins, metal, metal_e, ebv, ebv_e))
-        else:
-            sampler = emcee.EnsembleSampler(nwalkers, start.shape[-1],
-                        em_ln_prob_bi_red, threads=threads,
-                        args=(lumins, metal, metal_e, ebv, ebv_e, ebv2, ebv2_e))
             
-        sampler.run_mcmc(start, (nburn + steps))
-        samples = sampler.chain[:, nburn:, :].reshape((-1, start.shape[-1]))
-    
     samples = samples[::thin]
     
     if threads > 1:
