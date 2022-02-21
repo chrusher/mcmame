@@ -33,14 +33,14 @@ def prob_bi(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivar2):
     red_2 = -(A_V2 - theta[3])**2 * A_V2_ivar2
     lnprob += -np.logaddexp(red, red_2)
     for mag, mag_ivars2, reddening_grid, grid in mags:
-        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + theta[2])**2 * mag_ivars2
+        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
     return -lnprob
 
 def prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
     lnprob = (metal - theta[0])**2 * metal_ivar2
     lnprob += (A_V - theta[3])**2 * A_V_ivar2
     for mag, mag_ivars2, reddening_grid, grid in mags:
-        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + theta[2])**2 * mag_ivars2
+        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
     return -lnprob
         
 def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper):
@@ -73,28 +73,28 @@ class ln_prob_bi:
     def __init__(self, mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e):
         self.mags = mags
         self.metal = metal    
-        self.metal_e = metal_e**-2
+        self.metal_ivar2 = metal_e**-2
         self.A_V = A_V
         self.A_V_ivar2 = A_V_e**-2
         self.A_V2 = A_V2
         self.A_V2_ivar2 = A_V2_e**-2       
         
     def __call__(self, x):
-        return prob_bi(x, self.lumins, self.metal, self.metal_e,
-                       self.AV, self.AV_ivar2, self.AV2, self.AV2_ivar2)
+        return prob_bi(x, self.mags, self.metal, self.metal_ivar2,
+                       self.A_V, self.A_V_ivar2, self.A_V2, self.A_V2_ivar2)
     
 class ln_prob:
     
     def __init__(self, mags, metal, metal_e, A_V, A_V_e):
         self.mags = mags
         self.metal = metal    
-        self.metal_e = metal_e-2
+        self.metal_ivar2 = metal_e-2
         self.A_V = A_V
         self.A_V_ivar2 = A_V_e**-2
         
     def __call__(self, x):
-        return prob(x, self.lumins, self.metal, self.metal_e,
-                    self.AV, self.AV_ivar2)       
+        return prob(x, self.mags, self.metal, self.metal_ivar2,
+                    self.A_V, self.A_V_ivar2)       
     
 
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
@@ -125,10 +125,10 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
 
     #need to update these with magnitude specific grids
     if grids is None:
-        with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter.pickle', 'rb') as f:
+        with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
             grids = pickle.load(f)
             
-        with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter.pickle', 'rb') as f:
+        with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
             reddening_grids = pickle.load(f)
 
     if metal is None or metal_e is None:
@@ -160,9 +160,9 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
 
 
     if A_V2_e:
-        logl = ln_prob(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e)
+        logl = ln_prob_bi(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e)
     else:
-        logl = ln_prob_bi(mags, metal, metal_e, A_V, A_V_e)
+        logl = ln_prob(mags, metal, metal_e, A_V, A_V_e)
     logprior = ln_prior(metal_lower, metal_upper, age_lower,
                         age_upper, A_V_lower, A_V_upper)
     sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
@@ -214,7 +214,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
 def get_mags(magnitudes, reddening_grids, grids):
     mags = []
     for name, mag, mag_e in magnitudes:
-        mags.append(mag, mag_e**-2, reddening_grids[name], grids[name])
+        mags.append((mag, mag_e**-2, reddening_grids[name], grids[name]))
     return mags
 
 def magnitude_str(magnitudes):
@@ -311,7 +311,7 @@ def find_mass(mags, metal_guess, age_guess, A_V_guess):
     observed = []
     model = []
     for mag, mag_ivar2, reddening_grid, grid in mags:
-        observed.append((mag - A_V_guess * reddening_grid(metal_guess, age_guess)[0][0] - grid(metal_guess, age_guess)[0][0]) * mag_ivar2)
+        observed.append((-mag - A_V_guess * reddening_grid(metal_guess, age_guess)[0][0] + grid(metal_guess, age_guess)[0][0]) * mag_ivar2 / 2.5)
         model.append([mag_ivar2])
     observed = np.array(observed)
     model = np.array(model)
@@ -330,16 +330,14 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
     metal_range = metal_range[(metal_range >= metal_lower) & (metal_range <= metal_upper)]
     age_range = 10**np.hstack([np.arange(-0.9, 1.0, 0.1), np.arange(0.95, 1.2, 0.05)])
     age_range = age_range[(age_range >= age_lower) & (age_range <= age_upper)]
-    if A_V_e == 0:
-        A_V_range = [A_V]
-    else:
-        A_V_range = np.arange(0., A_V + A_V_e + 0.02, 0.02)
-        A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
+    A_V_range = np.arange(0., A_V + A_V_e + 0.02, 0.02)
+    A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
 
         
     metal_ivar2 = metal_e**-2
     A_V_ivar2 = A_V_e**-2
-    A_V2_ivar2 = A_V2_e**-2
+    if A_V2_e:
+        A_V2_ivar2 = A_V2_e**-2
     for metal_guess in metal_range:
         for age_guess in age_range:
             for A_V_guess in A_V_range:
@@ -367,16 +365,39 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.rcParams['figure.dpi'] = 50
         
-    metal = -0.6822533361523742
-    metal_e = 0.1595040018637024
-    mags = [['u', -6.6404734, 0.029137253712118956],
-            ['g', -8.340472, 0.01],
-            ['r', -9.140472, 0.01],
-            ['i', -9.5604725, 0.01],
-            ['z', -9.840472, 0.01]]
-     
+#     metal = -0.6822533361523742
+#     metal_e = 0.1595040018637024
+#     mags = [['u', -6.6404734, 0.029137253712118956],
+#             ['g', -8.340472, 0.01],
+#             ['r', -9.140472, 0.01],
+#             ['i', -9.5604725, 0.01],
+#             ['z', -9.840472, 0.01]]
+    
+    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
+        grids = pickle.load(f)
 
-    calc_age_mass(mags, metal, metal_e, 0.08, 0.03, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False) 
+    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
+        reddening_grids = pickle.load(f)    
+    
+    age = 12
+    metal = -1
+    metal_e = 0.2
+    mass = 5
+    A_V = 0.3
+    
+    mags = []
+    
+    for band in ['u', 'g', 'r', 'i', 'z']:
+
+        mag = grids[band].ev(metal, age) - 2.5 * mass + A_V * reddening_grids[band].ev(metal, age)
+        mags.append([band, mag, 0.02])
+        print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V * reddening_grids[band].ev(metal, age))
+        
+    calc_age_mass(mags, metal, metal_e, 0.3, 0.1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+    
+    calc_age_mass(mags, metal, metal_e, 0.3, 0.1, A_V2=0.5,
+                  A_V2_e=1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+    
     print()
     
     if plot:
