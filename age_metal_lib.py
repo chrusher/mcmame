@@ -98,7 +98,7 @@ class ln_prob:
     
 
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
-                  plot=False, age_guess=8, mass_guess=5.3,
+                  reddening_grids=None, plot=False, age_guess=8, mass_guess=5.3,
                   nwalkers=1000, steps=500, thin=10, keep_chain=False,
                   threads=4, metal_lower=-3.0, metal_upper=0.7, age_lower=0.1,
                   age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
@@ -127,7 +127,8 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     if grids is None:
         with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
             grids = pickle.load(f)
-            
+    
+    if reddening_grids is None:
         with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
             reddening_grids = pickle.load(f)
 
@@ -188,7 +189,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     Z_precentiles = np.percentile(samples[:,0], norm_percentiles)
     age_precentiles = np.percentile(samples[:,1], norm_percentiles)
     mass_precentiles = np.percentile(samples[:,2], norm_percentiles)
-    ebv_precentiles = np.percentile(samples[:,3], norm_percentiles)
+    A_V_precentiles = np.percentile(samples[:,3], norm_percentiles)
     
     
     output_str = 'Output:\n' 
@@ -198,7 +199,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,1]), np.std(samples[:,1])) + '\n'
     output_str += 'mass  ' + ' '.join(['{:.3f}'.format(mass) for mass in mass_precentiles]) + '\n'
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
-    output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in ebv_precentiles]) + '\n'
+    output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in A_V_precentiles]) + '\n'
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'        
     logger.info(output_str)
     if verbose:
@@ -206,9 +207,9 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         
     if plot:
         import corner
-        corner.corner(samples, labels=['[Z/H]', 'Age', 'Log Mass', 'E(B-V)'], quantiles=[0.16, 0.50, 0.84], show_titles=True)
+        corner.corner(samples, labels=['[Z/H]', 'Age', 'Log Mass', 'A_V'], quantiles=[0.16, 0.50, 0.84], show_titles=True)
 
-    return samples, Z_precentiles[1:-1], age_precentiles[1:-1], mass_precentiles, ebv_precentiles[1:-1]
+    return samples, Z_precentiles[1:-1], age_precentiles[1:-1], mass_precentiles, A_V_precentiles[1:-1]
 
 
 def get_mags(magnitudes, reddening_grids, grids):
@@ -365,38 +366,41 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.rcParams['figure.dpi'] = 50
         
-#     metal = -0.6822533361523742
-#     metal_e = 0.1595040018637024
-#     mags = [['u', -6.6404734, 0.029137253712118956],
-#             ['g', -8.340472, 0.01],
-#             ['r', -9.140472, 0.01],
-#             ['i', -9.5604725, 0.01],
-#             ['z', -9.840472, 0.01]]
+    metal = -0.6822533361523742
+    metal_e = 0.1595040018637024
+    mags = [['u', -6.6404734, 0.029137253712118956],
+            ['g', -8.340472, 0.01],
+            ['r', -9.140472, 0.01],
+            ['i', -9.5604725, 0.01],
+            ['z', -9.840472, 0.01]]
+    A_V = 3.1 * 0.08
+    A_V_e = 3.1 * 0.03
     
-    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
-        grids = pickle.load(f)
+#     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
+#         grids = pickle.load(f)
 
-    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
-        reddening_grids = pickle.load(f)    
+#     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
+#         reddening_grids = pickle.load(f)    
     
-    age = 12
-    metal = -1
-    metal_e = 0.2
-    mass = 5
-    A_V = 0.3
+#     age = 12
+#     metal = -1
+#     metal_e = 0.2
+#     mass = 5
+#     A_V = 0.3
+#     A_V_e = 0.1
     
-    mags = []
+#     mags = []
     
-    for band in ['u', 'g', 'r', 'i', 'z']:
+#     for band in ['u', 'g', 'r', 'i', 'z']:
 
-        mag = grids[band].ev(metal, age) - 2.5 * mass + A_V * reddening_grids[band].ev(metal, age)
-        mags.append([band, mag, 0.02])
-        print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V * reddening_grids[band].ev(metal, age))
+#         mag = grids[band].ev(metal, age) - 2.5 * mass + A_V * reddening_grids[band].ev(metal, age)
+#         mags.append([band, mag, 0.02])
+#         print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V * reddening_grids[band].ev(metal, age))
         
-    calc_age_mass(mags, metal, metal_e, 0.3, 0.1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
     
-    calc_age_mass(mags, metal, metal_e, 0.3, 0.1, A_V2=0.5,
-                  A_V2_e=1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+#     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=0.5,
+#                   A_V2_e=1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
     
     print()
     

@@ -17,7 +17,7 @@ import age_metal_lib
 
 
 def calc_age_metal(arguments):
-    entry, grids, priors, verbose = arguments
+    entry, grids, reddening_grids, priors, verbose = arguments
     
     logger = logging.getLogger(entry['output'])
 
@@ -37,23 +37,23 @@ def calc_age_metal(arguments):
         logger.warning('Need at least two bands')
         return None
     
-    if 'EBV' in entry.dtype.names and 'EBV_e' in entry.dtype.names:
-        ebv = entry['EBV']
-        ebv_e = entry['EBV_e']
+    if 'A_V' in entry.dtype.names and 'A_V_e' in entry.dtype.names:
+        A_V = entry['A_V']
+        A_V_e = entry['A_V_e']
     else:
-        ebv = 0
-        ebv_e = 0
+        A_V = 0
+        A_V_e = 0.01
         
-    if 'EBV2' in entry.dtype.names and 'EBV2_e' in entry.dtype.names:
-        ebv2 = entry['EBV2']
-        ebv2_e = entry['EBV2_e']
+    if 'A_V2' in entry.dtype.names and 'A_V2_e' in entry.dtype.names:
+        A_V2 = entry['A_V2']
+        A_V2_e = entry['A_V2_e']
     else:
-        ebv2 = 0
-        ebv2_e = 0
+        A_V2 = 0
+        A_V2_e = 0
 
-    samples, Z_limits, age_limits, mass_limits, ebv_limits = age_metal_lib.calc_age_mass(luminosities, entry['Z_H'], entry['Z_H_e'], ebv, ebv_e,
-    grids=grids, verbose=verbose, threads=1, logger=logger, ebv2=ebv2,
-    ebv2_e=ebv2_e, **priors)
+    samples, Z_limits, age_limits, mass_limits, A_V_limits = age_metal_lib.calc_age_mass(luminosities, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e,
+    grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2,
+    A_V2_e=A_V2_e, **priors)
 
     entry['Z'] = Z_limits[1]
     entry['Z_lower'] = Z_limits[1] - Z_limits[0]
@@ -64,16 +64,16 @@ def calc_age_metal(arguments):
     entry['mass'] = mass_limits[1]
     entry['mass_lower'] = mass_limits[1] - mass_limits[0]
     entry['mass_upper'] = mass_limits[2] - mass_limits[1]
-    entry['ebv'] = ebv_limits[1]
-    entry['ebv_lower'] = ebv_limits[1] - ebv_limits[0]
-    entry['ebv_upper'] = ebv_limits[2] - ebv_limits[1]
+    entry['A_V'] = A_V_limits[1]
+    entry['A_V_lower'] = A_V_limits[1] - A_V_limits[0]
+    entry['A_V_upper'] = A_V_limits[2] - A_V_limits[1]
     
     new_samples = np.empty(samples.shape[0], dtype=[('Z', 'f'),
-                            ('age', 'f'), ('mass', 'f'), ('ebv', 'f')])
+                            ('age', 'f'), ('mass', 'f'), ('A_V', 'f')])
     new_samples['Z'] = samples[:,0]
     new_samples['age'] = samples[:,1]
     new_samples['mass'] = samples[:,2]
-    new_samples['ebv'] = samples[:,3]
+    new_samples['A_V'] = samples[:,3]
 
     primary_hdu = fits.PrimaryHDU()
     entry_hdu = fits.table_to_hdu(table.Table(entry))
@@ -90,6 +90,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('input', help='Input file')
     parser.add_argument('--grid', help='Model grid')
+    parser.add_argument('--red-grid', help='Reddening grid')    
     parser.add_argument('--output', help='output_name')
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.add_argument('-N', type=int, help='Number of parallel processes')
@@ -97,8 +98,8 @@ if __name__ == '__main__':
     parser.add_argument('--age-upper', type=float, default=15.84, help='Upper limit of age prior')
     parser.add_argument('--metal-lower', type=float, default=-3., help='Lower limit of [Z/H] prior')
     parser.add_argument('--metal-upper', type=float, default=0.7, help='Upper limit of [Z/H] prior')
-    parser.add_argument('--ebv-lower', type=float, default=0., help='Lower limit of E(B-V) prior')
-    parser.add_argument('--ebv-upper', type=float, default=np.inf, help='Upper limit of E(B-V) prior')      
+    parser.add_argument('--A_V-lower', type=float, default=0., help='Lower limit of A_V prior')
+    parser.add_argument('--A_V-upper', type=float, default=np.inf, help='Upper limit of A_V prior')      
     
     os.nice(10)
     
@@ -113,10 +114,14 @@ if __name__ == '__main__':
         
         
     if args.grid is None:
-        args.grid = os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter.pickle'
+        args.grid = os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle'
+    if args.red_grid is None:
+        args.red_grid = os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle'        
 
     with open(args.grid, 'rb') as f:
         grids = pickle.load(f)
+    with open(args.red_grid, 'rb') as f:
+        reddening_grids = pickle.load(f)        
 
     logging.info('Using grid: ' + args.grid.split('/')[-1])
     
@@ -132,9 +137,9 @@ if __name__ == '__main__':
     catalogue['mass'] = 0.
     catalogue['mass_lower'] = 0.
     catalogue['mass_upper'] = 0. 
-    catalogue['ebv'] = 0.
-    catalogue['ebv_lower'] = 0.
-    catalogue['ebv_upper'] = 0.     
+    catalogue['A_V'] = 0.
+    catalogue['A_V_lower'] = 0.
+    catalogue['A_V_upper'] = 0.     
     
     
     existing_outputs = glob.glob(filename + '_*.fits') + glob.glob(filename + '_*.pickle')
@@ -142,8 +147,8 @@ if __name__ == '__main__':
               'age_upper':args.age_upper,
               'metal_lower':args.metal_lower,
               'metal_upper':args.metal_upper,
-              'ebv_lower':args.ebv_lower,
-              'ebv_upper':args.ebv_upper}
+              'A_V_lower':args.A_V_lower,
+              'A_V_upper':args.A_V_upper}
     
     inputs = []
     skipped = []
@@ -160,18 +165,18 @@ if __name__ == '__main__':
                 row['output'] = output
                 row_table = table.Table(row)
                 new_samples = np.empty(samples.shape[0], dtype=[('Z', 'f'),
-                                 ('age', 'f'), ('mass', 'f'), ('ebv', 'f')])
+                                 ('age', 'f'), ('mass', 'f'), ('A_V', 'f')])
                 new_samples['Z'] = samples[:,0]
                 new_samples['age'] = samples[:,1]
                 new_samples['mass'] = samples[:,2]
-                new_samples['ebv'] = samples[:,3]
+                new_samples['A_V'] = samples[:,3]
 
-                if 'ebv' not in row.colnames:
+                if 'A_V' not in row.colnames:
                     norm_percentiles = stats.norm.cdf([-1, 0, 1]) * 100
-                    lower, middle, upper = np.percentile(new_samples['ebv'], norm_percentiles)
-                    row_table['ebv'] = middle
-                    row_table['ebv_lower'] = middle - lower
-                    row_table['ebv_upper'] = upper - middle
+                    lower, middle, upper = np.percentile(new_samples['A_V'], norm_percentiles)
+                    row_table['A_V'] = middle
+                    row_table['A_V_lower'] = middle - lower
+                    row_table['A_V_upper'] = upper - middle
     
                 primary_hdu = fits.PrimaryHDU()
                 entry_hdu = fits.table_to_hdu(row_table)
@@ -183,7 +188,7 @@ if __name__ == '__main__':
                 logging.info('Converting ' + entry['ident'])
 
             else:
-                inputs.append([entry, grids, priors, args.verbose])
+                inputs.append([entry, grids, reddening_grids, priors, args.verbose])
                 logging.info('Sampling ' + entry['ident'])
             
         else:
