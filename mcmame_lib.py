@@ -12,8 +12,6 @@ from astropy.io import fits
 
 import ptemcee
 
-print('new library, who this')
-
 mag_sun = table.Table.read(os.path.expanduser('~') + '/sluggs/sps_models/mag_sun.fits')
     
     
@@ -139,11 +137,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     metal_guess, age_guess, mass_guess, A_V_guess = grid_search(mags, metal,
         metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower, age_upper, metal_lower,
         metal_upper, A_V_lower, A_V_upper, logger)
-    start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\n'.format(metal_guess,
-                    age_guess, mass_guess, A_V_guess)          
-    logger.info(start_str)
-    if verbose:
-        print(start_str)
+
 
     def start_array(guess, nwalkers, lower, upper):
         start = guess + 1e-2 * np.random.randn(nwalkers)
@@ -165,6 +159,14 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         logl = ln_prob(mags, metal, metal_e, A_V, A_V_e)
     logprior = ln_prior(metal_lower, metal_upper, age_lower,
                         age_upper, A_V_lower, A_V_upper)
+
+    log_likely = logl([metal_guess, age_guess, mass_guess, A_V_guess])
+    start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\nStarting log likelihood {:.3f}\n'.format(metal_guess,
+                    age_guess, mass_guess, A_V_guess, log_likely)          
+    logger.info(start_str)
+    if verbose:
+        print(start_str)    
+    
     sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
                                       threads=threads, ntemps=ntemps)
 
@@ -190,16 +192,17 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     mass_precentiles = np.percentile(samples[:,2], norm_percentiles)
     A_V_precentiles = np.percentile(samples[:,3], norm_percentiles)
     
-    
     output_str = 'Output:\n' 
-    output_str += '[Z/H] ' + ' '.join(['{:.3f}'.format(Z) for Z in Z_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,0]), np.std(samples[:,0])) + '\n'
-    output_str += 'age   ' + ' '.join(['{:.3f}'.format(age) for age in age_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,1]), np.std(samples[:,1])) + '\n'
-    output_str += 'mass  ' + ' '.join(['{:.3f}'.format(mass) for mass in mass_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
-    output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in A_V_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'        
+    output_str += '[Z/H] ' + ' '.join(['{:.3f}\n'.format(Z) for Z in Z_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,0]), np.std(samples[:,0])) + '\n'
+    output_str += 'age   ' + ' '.join(['{:.3f}\n'.format(age) for age in age_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,1]), np.std(samples[:,1])) + '\n'
+    output_str += 'mass  ' + ' '.join(['{:.3f}\n'.format(mass) for mass in mass_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
+    output_str += 'A_V   ' + ' '.join(['{:.3f}\n'.format(red) for red in A_V_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
+    log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]])
+    output_str += 'Log likelihood: {:.3f}\n'.format(log_likely)
     logger.info(output_str)
     if verbose:
         print(output_str)    
@@ -311,8 +314,8 @@ def find_mass(mags, metal_guess, age_guess, A_V_guess):
     observed = []
     model = []
     for mag, mag_ivar2, reddening_grid, grid in mags:
-        observed.append((-mag - A_V_guess * reddening_grid(metal_guess, age_guess)[0][0] + grid(metal_guess, age_guess)[0][0]) * mag_ivar2 / 2.5)
-        model.append([mag_ivar2])
+        observed.append((-mag + A_V_guess * reddening_grid(metal_guess, age_guess)[0][0] + grid(metal_guess, age_guess)[0][0]) * mag_ivar2**0.5 / 2.5)
+        model.append([mag_ivar2**0.5])
     observed = np.array(observed)
     model = np.array(model)
     mass = np.linalg.lstsq(model, observed, rcond=None)[0][0]
@@ -325,19 +328,20 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
     best_likely = -np.inf
     best_guess = None
     
-
-    metal_range = np.arange(-2.5, 0.3, 0.1)
+    metal_range = np.arange(-2.5, 0.3, 0.25)
     metal_range = metal_range[(metal_range >= metal_lower) & (metal_range <= metal_upper)]
-    age_range = 10**np.hstack([np.arange(-0.9, 1.0, 0.1), np.arange(0.95, 1.2, 0.05)])
+    age_range = 10**np.arange(-1, 1.2, 0.1)
     age_range = age_range[(age_range >= age_lower) & (age_range <= age_upper)]
-    A_V_range = np.arange(0., A_V + A_V_e + 0.02, 0.02)
+    A_V_range = np.arange(0., max(A_V, A_V2) + max(A_V_e, A_V2_e) + 0.1, 0.1)
     A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
-
         
     metal_ivar2 = metal_e**-2
     A_V_ivar2 = A_V_e**-2
+        
+        
     if A_V2_e:
         A_V2_ivar2 = A_V2_e**-2
+            
     for metal_guess in metal_range:
         for age_guess in age_range:
             for A_V_guess in A_V_range:
@@ -346,7 +350,7 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
                     ln_likely = prob_bi((metal_guess, age_guess, mass_guess, A_V_guess), mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivar2)
                 else:
                     ln_likely = prob((metal_guess, age_guess, mass_guess, A_V_guess), mags, metal, metal_ivar2, A_V, A_V_ivar2)
-                                    
+                
                 if ln_likely > best_likely:
                     best_guess = (metal_guess, age_guess, mass_guess, A_V_guess)
                     best_likely = ln_likely
@@ -375,31 +379,32 @@ if __name__ == '__main__':
     A_V = 3.1 * 0.08
     A_V_e = 3.1 * 0.03
     
-#     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
-#         grids = pickle.load(f)
+    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
+        grids = pickle.load(f)
 
-#     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
-#         reddening_grids = pickle.load(f)    
+    with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
+        reddening_grids = pickle.load(f)    
     
-#     age = 12
-#     metal = -1
-#     metal_e = 0.2
-#     mass = 5
-#     A_V = 0.3
-#     A_V_e = 0.1
+    age = 11
+    metal = -1
+    metal_e = 0.2
+    mass = 5
+    A_V = 0.3
+    A_V_e = 0.1
+    A_V2 = 1
+    A_V2_e = 0.5
     
-#     mags = []
+    mags = []
     
-#     for band in ['u', 'g', 'r', 'i', 'z']:
+    for band in ['u', 'g', 'r', 'i', 'z']:
 
-#         mag = grids[band].ev(metal, age) - 2.5 * mass + A_V * reddening_grids[band].ev(metal, age)
-#         mags.append([band, mag, 0.02])
-#         print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V * reddening_grids[band].ev(metal, age))
+        mag = grids[band].ev(metal, age) - 2.5 * mass + 0.75 * reddening_grids[band].ev(metal, age)
+        mags.append([band, mag, 0.02])
+#         print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V2 * reddening_grids[band].ev(metal, age))
         
-    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+#     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
     
-#     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=0.5,
-#                   A_V2_e=1, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
     
     print()
     

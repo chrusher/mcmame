@@ -8,12 +8,11 @@ import os
 import pickle
 
 import numpy as np
-from scipy import stats
 
 from astropy import table
 from astropy.io import fits
 
-import .age_metal_lib
+import mcmame_lib
 
 
 def calc_age_metal(arguments):
@@ -30,7 +29,7 @@ def calc_age_metal(arguments):
             mag_e = entry[name + '_e']
             if (hasattr(mag, 'mask') and mag.mask) or (hasattr(mag_e, 'mask') and mag_e.mask) or ~np.isfinite(mag) or ~np.isfinite(mag_e):
                 continue
-            magnitudes += age_metal_lib.calc_magnitudes([[name, entry[name], entry[name + '_e']]])
+            magnitudes += [[name, entry[name], entry[name + '_e']]]
 
             
     if len(magnitudes) <= 1:
@@ -51,7 +50,7 @@ def calc_age_metal(arguments):
         A_V2 = 0
         A_V2_e = 0
 
-    samples, Z_limits, age_limits, mass_limits, A_V_limits = age_metal_lib.calc_age_mass(luminosities, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
+    samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
 
     entry['Z'] = Z_limits[1]
     entry['Z_lower'] = Z_limits[1] - Z_limits[0]
