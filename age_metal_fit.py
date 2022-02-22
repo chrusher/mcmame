@@ -13,7 +13,7 @@ from scipy import stats
 from astropy import table
 from astropy.io import fits
 
-import age_metal_lib
+import .age_metal_lib
 
 
 def calc_age_metal(arguments):
@@ -21,7 +21,7 @@ def calc_age_metal(arguments):
     
     logger = logging.getLogger(entry['output'])
 
-    luminosities = []
+    magnitudes = []
     for name in entry.dtype.names:
         if '_e' == name[-2:]:
              continue
@@ -30,11 +30,11 @@ def calc_age_metal(arguments):
             mag_e = entry[name + '_e']
             if (hasattr(mag, 'mask') and mag.mask) or (hasattr(mag_e, 'mask') and mag_e.mask) or ~np.isfinite(mag) or ~np.isfinite(mag_e):
                 continue
-            luminosities += age_metal_lib.calc_luminosities([[name, entry[name], entry[name + '_e']]])
+            magnitudes += age_metal_lib.calc_magnitudes([[name, entry[name], entry[name + '_e']]])
 
             
-    if len(luminosities) <= 1:
-        logger.warning('Need at least two bands')
+    if len(magnitudes) <= 1:
+        logger.warning('Need at least two bands for {}'.format(entry['ident']))
         return None
     
     if 'A_V' in entry.dtype.names and 'A_V_e' in entry.dtype.names:
@@ -51,9 +51,7 @@ def calc_age_metal(arguments):
         A_V2 = 0
         A_V2_e = 0
 
-    samples, Z_limits, age_limits, mass_limits, A_V_limits = age_metal_lib.calc_age_mass(luminosities, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e,
-    grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2,
-    A_V2_e=A_V2_e, **priors)
+    samples, Z_limits, age_limits, mass_limits, A_V_limits = age_metal_lib.calc_age_mass(luminosities, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
 
     entry['Z'] = Z_limits[1]
     entry['Z_lower'] = Z_limits[1] - Z_limits[0]
@@ -64,9 +62,9 @@ def calc_age_metal(arguments):
     entry['mass'] = mass_limits[1]
     entry['mass_lower'] = mass_limits[1] - mass_limits[0]
     entry['mass_upper'] = mass_limits[2] - mass_limits[1]
-    entry['A_V'] = A_V_limits[1]
-    entry['A_V_lower'] = A_V_limits[1] - A_V_limits[0]
-    entry['A_V_upper'] = A_V_limits[2] - A_V_limits[1]
+    entry['a_v'] = A_V_limits[1]
+    entry['a_v_lower'] = A_V_limits[1] - A_V_limits[0]
+    entry['a_v_upper'] = A_V_limits[2] - A_V_limits[1]
     
     new_samples = np.empty(samples.shape[0], dtype=[('Z', 'f'),
                             ('age', 'f'), ('mass', 'f'), ('A_V', 'f')])
@@ -137,9 +135,9 @@ if __name__ == '__main__':
     catalogue['mass'] = 0.
     catalogue['mass_lower'] = 0.
     catalogue['mass_upper'] = 0. 
-    catalogue['A_V'] = 0.
-    catalogue['A_V_lower'] = 0.
-    catalogue['A_V_upper'] = 0.     
+    catalogue['a_v'] = 0.
+    catalogue['a_v_lower'] = 0.
+    catalogue['a_v_upper'] = 0.     
     
     
     existing_outputs = glob.glob(filename + '_*.fits') + glob.glob(filename + '_*.pickle')
@@ -169,14 +167,7 @@ if __name__ == '__main__':
                 new_samples['Z'] = samples[:,0]
                 new_samples['age'] = samples[:,1]
                 new_samples['mass'] = samples[:,2]
-                new_samples['A_V'] = samples[:,3]
-
-                if 'A_V' not in row.colnames:
-                    norm_percentiles = stats.norm.cdf([-1, 0, 1]) * 100
-                    lower, middle, upper = np.percentile(new_samples['A_V'], norm_percentiles)
-                    row_table['A_V'] = middle
-                    row_table['A_V_lower'] = middle - lower
-                    row_table['A_V_upper'] = upper - middle
+                new_samples['a_v'] = samples[:,3]
     
                 primary_hdu = fits.PrimaryHDU()
                 entry_hdu = fits.table_to_hdu(row_table)

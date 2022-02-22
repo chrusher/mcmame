@@ -1,8 +1,5 @@
 #! /usr/bin/env python
 
-from __future__ import print_function
-
-
 import logging
 import os
 import pickle
@@ -14,6 +11,8 @@ from astropy import table
 from astropy.io import fits
 
 import ptemcee
+
+print('new library, who this')
 
 mag_sun = table.Table.read(os.path.expanduser('~') + '/sluggs/sps_models/mag_sun.fits')
     
