@@ -193,14 +193,14 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     A_V_precentiles = np.percentile(samples[:,3], norm_percentiles)
     
     output_str = 'Output:\n' 
-    output_str += '[Z/H] ' + ' '.join(['{:.3f}\n'.format(Z) for Z in Z_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,0]), np.std(samples[:,0])) + '\n'
-    output_str += 'age   ' + ' '.join(['{:.3f}\n'.format(age) for age in age_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,1]), np.std(samples[:,1])) + '\n'
-    output_str += 'mass  ' + ' '.join(['{:.3f}\n'.format(mass) for mass in mass_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
-    output_str += 'A_V   ' + ' '.join(['{:.3f}\n'.format(red) for red in A_V_precentiles]) + '\n'
-    output_str += '       {:.3f} \u00B1{:.3f}\n'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
+    output_str += '[Z/H] ' + ' '.join(['{:.3f}'.format(Z) for Z in Z_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,0]), np.std(samples[:,0])) + '\n'
+    output_str += 'age   ' + ' '.join(['{:.3f}'.format(age) for age in age_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,1]), np.std(samples[:,1])) + '\n'
+    output_str += 'mass  ' + ' '.join(['{:.3f}'.format(mass) for mass in mass_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
+    output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in A_V_precentiles]) + '\n'
+    output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
     log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]])
     output_str += 'Log likelihood: {:.3f}\n'.format(log_likely)
     logger.info(output_str)
@@ -394,11 +394,13 @@ if __name__ == '__main__':
     A_V2 = 1
     A_V2_e = 0.5
     
+    print('True values', age, metal, mass, A_V2)
+    
     mags = []
     
     for band in ['u', 'g', 'r', 'i', 'z']:
 
-        mag = grids[band].ev(metal, age) - 2.5 * mass + 0.75 * reddening_grids[band].ev(metal, age)
+        mag = grids[band].ev(metal, age) - 2.5 * mass + A_V2 * reddening_grids[band].ev(metal, age)
         mags.append([band, mag, 0.02])
 #         print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V2 * reddening_grids[band].ev(metal, age))
         
