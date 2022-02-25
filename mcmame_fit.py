@@ -105,7 +105,7 @@ if __name__ == '__main__':
     LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
     
-    logging.info('Using {} cores'
+    logging.info('Using {} cores'.format(args.N))
 
     filename = os.path.splitext(args.input)[0]
     if args.output:
