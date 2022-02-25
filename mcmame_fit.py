@@ -104,6 +104,8 @@ if __name__ == '__main__':
     
     LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
+    
+    logging.info('Using {} cores'
 
     filename = os.path.splitext(args.input)[0]
     if args.output:
@@ -121,6 +123,7 @@ if __name__ == '__main__':
         reddening_grids = pickle.load(f)        
 
     logging.info('Using grid: ' + args.grid.split('/')[-1])
+    logging.info('Using reddening grid: ' + args.red_grid.split('/')[-1])
     
     catalogue = table.Table.read(args.input)
 
