@@ -12,9 +12,10 @@ from astropy.io import fits
 
 import ptemcee
 
+# todo: don't hard code paths
 mag_sun = table.Table.read(os.path.expanduser('~') + '/sluggs/sps_models/mag_sun.fits')
     
-    
+# how bright is the Sun in different filters and magnitide systems    
 def get_mag_sun(name, AB=True):
     
     row = mag_sun[mag_sun['filter'] == name][0]
@@ -93,13 +94,13 @@ class ln_prob:
         return prob(x, self.mags, self.metal, self.metal_ivar2,
                     self.A_V, self.A_V_ivar2)       
     
-
+# takes a list of magnitudes, and samples the posterior distributions of metallicity,
+# age, mass and extinction subject to the Gaussian priors on metallicity and extinction
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
-                  reddening_grids=None, plot=False, age_guess=8, mass_guess=5.3,
-                  nwalkers=1000, steps=500, thin=10, keep_chain=False,
-                  threads=4, metal_lower=-3.0, metal_upper=0.7, age_lower=0.1,
-                  age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
-                  A_V2_e=0, ntemps=8, nburn=500, logger=None, verbose=True):
+                  reddening_grids=None, plot=False, nwalkers=1000, steps=500, thin=10,
+                  keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.7,
+                  age_lower=0.1, age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
+                  A_V2_e=0, ntemps=8, nburn=500, logger=None):
 
     if logger is None:
         logger = logging.getLogger()
@@ -120,7 +121,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     if verbose:
         print(input_str)
 
-    #need to update these with magnitude specific grids
+    # I should not hard code paths like this
     if grids is None:
         with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
             grids = pickle.load(f)
@@ -163,9 +164,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     log_likely = logl([metal_guess, age_guess, mass_guess, A_V_guess])
     start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\nStarting log likelihood {:.3f}\n'.format(metal_guess,
                     age_guess, mass_guess, A_V_guess, log_likely)          
-    logger.info(start_str)
-    if verbose:
-        print(start_str)    
+    logger.info(start_str)  
     
     sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
                                       threads=threads, ntemps=ntemps)
@@ -203,9 +202,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
     log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]])
     output_str += 'Log likelihood: {:.3f}\n'.format(log_likely)
-    logger.info(output_str)
-    if verbose:
-        print(output_str)    
+    logger.info(output_str) 
         
     if plot:
         import corner
@@ -358,7 +355,7 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
                 
     return best_guess
     
-
+# these tests should be in their own file
 if __name__ == '__main__':
     LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
