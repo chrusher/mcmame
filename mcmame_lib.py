@@ -85,7 +85,7 @@ class ln_prob:
     def __init__(self, mags, metal, metal_e, A_V, A_V_e):
         self.mags = mags
         self.metal = metal    
-        self.metal_ivar2 = metal_e-2
+        self.metal_ivar2 = metal_e**-2
         self.A_V = A_V
         self.A_V_ivar2 = A_V_e**-2
         
