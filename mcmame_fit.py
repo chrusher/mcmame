@@ -16,7 +16,7 @@ import mcmame_lib
 
 
 def calc_age_metal(arguments):
-    entry, grids, reddening_grids, priors, verbose = arguments
+    entry, grids, reddening_grids, priors = arguments
     
     logger = logging.getLogger(entry['output'])
 
@@ -50,7 +50,7 @@ def calc_age_metal(arguments):
         A_V2 = 0
         A_V2_e = 0
 
-    samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, verbose=verbose, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
+    samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
 
     entry['Z'] = Z_limits[1]
     entry['Z_lower'] = Z_limits[1] - Z_limits[0]
@@ -89,7 +89,6 @@ if __name__ == '__main__':
     parser.add_argument('--grid', help='Model grid')
     parser.add_argument('--red-grid', help='Reddening grid')    
     parser.add_argument('--output', help='output_name')
-    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     parser.add_argument('-N', type=int, help='Number of parallel processes')
     parser.add_argument('--age-lower', type=float, default=0.1, help='Lower limit of age prior')
     parser.add_argument('--age-upper', type=float, default=15.84, help='Upper limit of age prior')
@@ -181,7 +180,7 @@ if __name__ == '__main__':
                 logging.info('Converting ' + entry['ident'])
 
             else:
-                inputs.append([entry, grids, reddening_grids, priors, args.verbose])
+                inputs.append([entry, grids, reddening_grids, priors])
                 logging.info('Sampling ' + entry['ident'])
             
         else:
