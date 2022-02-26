@@ -71,11 +71,11 @@ class ln_prob_bi:
     def __init__(self, mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e):
         self.mags = mags
         self.metal = metal    
-        self.metal_ivar2 = metal_e**-2
+        self.metal_ivar2 = metal_e**-2.
         self.A_V = A_V
-        self.A_V_ivar2 = A_V_e**-2
+        self.A_V_ivar2 = A_V_e**-2.
         self.A_V2 = A_V2
-        self.A_V2_ivar2 = A_V2_e**-2       
+        self.A_V2_ivar2 = A_V2_e**-2.       
         
     def __call__(self, x):
         return prob_bi(x, self.mags, self.metal, self.metal_ivar2,
@@ -86,9 +86,9 @@ class ln_prob:
     def __init__(self, mags, metal, metal_e, A_V, A_V_e):
         self.mags = mags
         self.metal = metal    
-        self.metal_ivar2 = metal_e**-2
+        self.metal_ivar2 = metal_e**-2.
         self.A_V = A_V
-        self.A_V_ivar2 = A_V_e**-2
+        self.A_V_ivar2 = A_V_e**-2.
         
     def __call__(self, x):
         return prob(x, self.mags, self.metal, self.metal_ivar2,
@@ -118,8 +118,6 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     input_str += '{:.3f} < Age < {:.3f}\n'.format(age_lower, age_upper)
     input_str += '{:.3f} < A_V < {:.3f}\n'.format(A_V_lower, A_V_upper)
     logger.info(input_str)
-    if verbose:
-        print(input_str)
 
     # I should not hard code paths like this
     if grids is None:
@@ -214,7 +212,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
 def get_mags(magnitudes, reddening_grids, grids):
     mags = []
     for name, mag, mag_e in magnitudes:
-        mags.append((mag, mag_e**-2, reddening_grids[name], grids[name]))
+        mags.append((mag, mag_e**-2., reddening_grids[name], grids[name]))
     return mags
 
 def magnitude_str(magnitudes):
@@ -332,12 +330,10 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
     A_V_range = np.arange(0., max(A_V, A_V2) + max(A_V_e, A_V2_e) + 0.1, 0.1)
     A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
         
-    metal_ivar2 = metal_e**-2
-    A_V_ivar2 = A_V_e**-2
-        
-        
+    metal_ivar2 = metal_e**-2.
+    A_V_ivar2 = A_V_e**-2.        
     if A_V2_e:
-        A_V2_ivar2 = A_V2_e**-2
+        A_V2_ivar2 = A_V2_e**-2.
             
     for metal_guess in metal_range:
         for age_guess in age_range:
