@@ -378,6 +378,8 @@ if __name__ == '__main__':
     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
         reddening_grids = pickle.load(f)    
     
+    print(grids['V'].ev(0, [1e-4, 1e-3, 1e-2]))
+    
     age = 11
     metal = -1
     metal_e = 0.2
@@ -399,7 +401,7 @@ if __name__ == '__main__':
         
 #     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
     
-    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
+    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)
     
     print()
     
