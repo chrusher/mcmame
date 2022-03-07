@@ -99,7 +99,7 @@ class ln_prob:
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
                   reddening_grids=None, plot=False, nwalkers=1000, steps=500, thin=10,
                   keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.7,
-                  age_lower=0.1, age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
+                  age_lower=0.001, age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
                   A_V2_e=0, ntemps=8, nburn=500, logger=None):
 
     if logger is None:
@@ -325,7 +325,7 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
     
     metal_range = np.arange(-2.5, 0.3, 0.25)
     metal_range = metal_range[(metal_range >= metal_lower) & (metal_range <= metal_upper)]
-    age_range = 10**np.arange(-1, 1.2, 0.1)
+    age_range = 10**np.arange(-2.5, 1.2, 0.1)
     age_range = age_range[(age_range >= age_lower) & (age_range <= age_upper)]
     A_V_range = np.arange(0., max(A_V, A_V2) + max(A_V_e, A_V2_e) + 0.1, 0.1)
     A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
@@ -377,8 +377,6 @@ if __name__ == '__main__':
 
     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
         reddening_grids = pickle.load(f)    
-    
-    print(grids['V'].ev(0, [1e-4, 1e-3, 1e-2]))
     
     age = 11
     metal = -1
