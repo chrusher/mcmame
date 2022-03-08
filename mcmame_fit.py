@@ -90,7 +90,7 @@ if __name__ == '__main__':
     parser.add_argument('--red-grid', help='Reddening grid')    
     parser.add_argument('--output', help='output_name')
     parser.add_argument('-N', type=int, help='Number of parallel processes')
-    parser.add_argument('--age-lower', type=float, default=0.1, help='Lower limit of age prior')
+    parser.add_argument('--age-lower', type=float, default=0.001, help='Lower limit of age prior')
     parser.add_argument('--age-upper', type=float, default=15.84, help='Upper limit of age prior')
     parser.add_argument('--metal-lower', type=float, default=-3., help='Lower limit of [Z/H] prior')
     parser.add_argument('--metal-upper', type=float, default=0.7, help='Upper limit of [Z/H] prior')
