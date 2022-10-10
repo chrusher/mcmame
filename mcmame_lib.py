@@ -206,7 +206,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         import corner
         corner.corner(samples, labels=['[Z/H]', 'Age', 'Log Mass', 'A_V'], quantiles=[0.16, 0.50, 0.84], show_titles=True)
 
-    return samples, Z_precentiles[1:-1], age_precentiles[1:-1], mass_precentiles, A_V_precentiles[1:-1]
+    return samples, Z_precentiles[1:-1], age_precentiles[1:-1], mass_precentiles[1:-1], A_V_precentiles[1:-1]
 
 
 def get_mags(magnitudes, reddening_grids, grids):
@@ -316,7 +316,7 @@ def find_mass(mags, metal_guess, age_guess, A_V_guess):
     mass = np.linalg.lstsq(model, observed, rcond=None)[0][0]
     return mass
 
-
+# a better way to do this could be to find the best A_V and mass for each age and metallicity
 def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
                 age_upper, metal_lower, metal_upper, A_V_lower, A_V_upper,
                 logger):
@@ -347,7 +347,7 @@ def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
                 if ln_likely > best_likely:
                     best_guess = (metal_guess, age_guess, mass_guess, A_V_guess)
                     best_likely = ln_likely
-                    logger.debug(best_guess, best_likely)
+                    logger.debug('{} {}'.format(best_guess, best_likely))
                 
     return best_guess
     

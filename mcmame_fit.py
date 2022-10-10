@@ -36,6 +36,13 @@ def calc_age_metal(arguments):
         logger.warning('Need at least two bands for {}'.format(entry['ident']))
         return None
     
+    if 'Z_H' in entry.dtype.names and 'Z_H_e' in entry.dtype.names:
+        Z_H = entry['Z_H']
+        Z_H_e = entry['Z_H_e']
+    else:
+        Z_H = None
+        Z_H_e = None
+    
     if 'A_V' in entry.dtype.names and 'A_V_e' in entry.dtype.names:
         A_V = entry['A_V']
         A_V_e = entry['A_V_e']
@@ -50,7 +57,7 @@ def calc_age_metal(arguments):
         A_V2 = 0
         A_V2_e = 0
 
-    samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, entry['Z_H'], entry['Z_H_e'], A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
+    samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, Z_H, Z_H_e, A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
 
     entry['Z'] = Z_limits[1]
     entry['Z_lower'] = Z_limits[1] - Z_limits[0]
@@ -103,13 +110,16 @@ if __name__ == '__main__':
     
     LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
-    
-    logging.info('Using {} cores'.format(args.N))
+
+    if args.N:
+        cpus = args.N
+    else:
+        cpus = max(multiprocessing.cpu_count() // 2, 1)    
+    logging.info('Using {} cores'.format(cpus))
 
     filename = os.path.splitext(args.input)[0]
     if args.output:
         filename = args.output
-        
         
     if args.grid is None:
         args.grid = os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle'
@@ -190,10 +200,6 @@ if __name__ == '__main__':
             logging.info('Skipping ' + entry['ident'])
         
 
-    if args.N:
-        cpus = args.N
-    else:
-        cpus = max(multiprocessing.cpu_count() // 2, 1)
     pool = multiprocessing.Pool(processes=cpus)
     results = pool.map(calc_age_metal, inputs)
     pool.close()
