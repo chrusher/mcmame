@@ -135,7 +135,7 @@ if __name__ == '__main__':
     logging.info('Using reddening grid: ' + args.red_grid.split('/')[-1])
     
     catalogue = table.Table.read(args.input)
-
+    catalogue['ident'] = [str(ident) for ident in catalogue['ident']]
     catalogue.add_column(table.Column(np.array(catalogue['ident'], dtype='a80'), name='output'))
     catalogue['Z'] = 0.
     catalogue['Z_lower'] = 0.
