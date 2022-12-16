@@ -27,7 +27,7 @@ def calc_age_metal(arguments):
         if name in grids.keys():
             mag = entry[name]
             mag_e = entry[name + '_e']
-            if (hasattr(mag, 'mask') and mag.mask) or (hasattr(mag_e, 'mask') and mag_e.mask) or ~np.isfinite(mag) or ~np.isfinite(mag_e):
+            if (hasattr(mag, 'mask') and mag.mask) or (hasattr(mag_e, 'mask') and mag_e.mask) or ~np.isfinite(mag) or not (mag_e > 0):
                 continue
             magnitudes += [[name, entry[name], entry[name + '_e']]]
 
