@@ -34,12 +34,22 @@ def prob_bi(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivar2):
         lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
     return -lnprob
 
+def fast_prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
+    delta = metal - theta[0]
+    lnprob = delta * delta * metal_ivar2
+    delta = A_V - theta[3]
+    lnprob += delta * delta * A_V_ivar2
+    for mag, mag_ivars2, reddening_grid, grid in mags:
+        delta = mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2]
+        lnprob += delta * delta * mag_ivars2
+    return -lnprob 
+
 def prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
     lnprob = (metal - theta[0])**2 * metal_ivar2
     lnprob += (A_V - theta[3])**2 * A_V_ivar2
     for mag, mag_ivars2, reddening_grid, grid in mags:
         lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
-    return -lnprob
+    return -lnprob       
         
 def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper):
     if theta[0] > metal_upper or theta[0] < metal_lower:
@@ -50,67 +60,34 @@ def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_
         return -np.inf    
     else:
         return 0.
-        
-class ln_prior:
     
-    def __init__(self, metal_lower=-3.0, metal_upper=0.7, age_lower=0.1,
-                 age_upper=15.84, A_V_lower=0., A_V_upper=np.inf):
-        self.metal_lower = metal_lower
-        self.metal_upper = metal_upper
-        self.age_lower = age_lower
-        self.age_upper = age_upper
-        self.A_V_lower = A_V_lower
-        self.A_V_upper = A_V_upper
-        
-    def __call__(self, x):
-        return prior(x, self.metal_lower, self.metal_upper, self.age_lower,
-                     self.age_upper, self.A_V_lower, self.A_V_upper)
-            
-class ln_prob_bi:
-    
-    def __init__(self, mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e):
-        self.mags = mags
-        self.metal = metal    
-        self.metal_ivar2 = metal_e**-2. / 2
-        self.A_V = A_V
-        self.A_V_ivar2 = A_V_e**-2. / 2
-        self.A_V2 = A_V2
-        self.A_V2_ivar2 = A_V2_e**-2. / 2     
-        
-    def __call__(self, x):
-        return prob_bi(x, self.mags, self.metal, self.metal_ivar2,
-                       self.A_V, self.A_V_ivar2, self.A_V2, self.A_V2_ivar2)
-    
-class ln_prob:
-    
-    def __init__(self, mags, metal, metal_e, A_V, A_V_e):
-        self.mags = mags
-        self.metal = metal    
-        self.metal_ivar2 = metal_e**-2. / 2
-        self.A_V = A_V
-        self.A_V_ivar2 = A_V_e**-2. / 2
-        
-    def __call__(self, x):
-        return prob(x, self.mags, self.metal, self.metal_ivar2,
-                    self.A_V, self.A_V_ivar2)       
     
 # takes a list of magnitudes, and samples the posterior distributions of metallicity,
 # age, mass and extinction subject to the Gaussian priors on metallicity and extinction
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
                   reddening_grids=None, plot=False, nwalkers=1000, steps=500, thin=10,
-                  keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.7,
-                  age_lower=0.001, age_upper=15.84, A_V_lower=0., A_V_upper=np.inf, A_V2=0,
-                  A_V2_e=0, ntemps=8, nburn=500, logger=None):
+                  keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.5,
+                  age_lower=0.001, age_upper=15., A_V_lower=0., A_V_upper=np.inf, A_V2=None,
+                  A_V2_e=None, ntemps=8, nburn=500, logger=None):
 
     if logger is None:
         logger = logging.getLogger()
+        
+    if metal is None:
+        metal = -1
+    if not metal_e:
+        metal_e = np.inf
+    if not A_V or not A_V_e:
+        A_V = 0.1
+        A_V_e = np.inf
     
     input_str = 'Input:\n'
-    if metal is not None and metal_e is not None:
+    if np.isfinite(metal_e):
         input_str += '[Z/H] {:.3f} {:.3f}'.format(metal, metal_e)
-    input_str += '  A_V  {:.3f} {:.3f}'.format(A_V, A_V_e)
-    if A_V2_e:
-        input_str += ' {:.3f} {:.3f}'.format(A_V2, A_V2_e)
+    if np.isfinite(A_V_e):
+        input_str += '  A_V  {:.3f} {:.3f}'.format(A_V, A_V_e)
+        if A_V2_e:
+            input_str += ' {:.3f} {:.3f}'.format(A_V2, A_V2_e)
     input_str += '\n'
     input_str += magnitude_str(magnitudes)
     input_str += '\nPriors:\n'
@@ -128,53 +105,50 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
             reddening_grids = pickle.load(f)
 
-    if metal is None or metal_e is None:
-        metal = -1
-        metal_e = 10
-    
     mags = get_mags(magnitudes, reddening_grids, grids)
-    metal_guess, age_guess, mass_guess, A_V_guess = grid_search(mags, metal,
-        metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower, age_upper, metal_lower,
+            
+    metal_ivar2 = metal_e**-2. / 2
+    A_V_ivar2 = A_V_e**-2. / 2
+    if A_V2_e:
+        A_V2_ivars2 = A_V2_e**-2. / 2
+        logl = prob_bi
+        loglargs = (mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivars2)
+    else:
+        logl = fast_prob
+        loglargs = (mags, metal, metal_ivar2, A_V, A_V_ivar2)            
+            
+    metal_guess, age_guess, mass_guess, A_V_guess = grid_search(mags, logl, loglargs, age_lower, age_upper, metal_lower,
         metal_upper, A_V_lower, A_V_upper, logger)
 
 
-    def start_array(guess, nwalkers, lower, upper):
-        start = guess + 1e-2 * np.random.randn(nwalkers)
+    def start_array(guess, nwalkers, scatter, lower, upper):
+        start = guess + scatter * np.random.randn(nwalkers)
         start[start < lower] = lower
         start[start > upper] = upper
         return start 
 
-    start = [start_array(metal_guess, nwalkers, metal_lower, metal_upper),
-             start_array(age_guess, nwalkers, age_lower, age_upper),
-             start_array(mass_guess, nwalkers, -np.inf, np.inf),
-             start_array(A_V_guess, nwalkers, A_V_lower, A_V_upper)]
-    
+    start = [start_array(metal_guess, nwalkers, 0.1, metal_lower, metal_upper),
+             start_array(age_guess, nwalkers, age_guess * 0.1, age_lower, age_upper),
+             start_array(mass_guess, nwalkers, 0.05, -np.inf, np.inf),
+             start_array(A_V_guess, nwalkers, 0.05, A_V_lower, A_V_upper)]
     start = np.asarray(start).T
-
-
-    if A_V2_e:
-        logl = ln_prob_bi(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e)
-    else:
-        logl = ln_prob(mags, metal, metal_e, A_V, A_V_e)
-    logprior = ln_prior(metal_lower, metal_upper, age_lower,
-                        age_upper, A_V_lower, A_V_upper)
-
-    log_likely = logl([metal_guess, age_guess, mass_guess, A_V_guess])
+        
+    log_likely = logl([metal_guess, age_guess, mass_guess, A_V_guess], *loglargs)
     start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\nStarting log likelihood {:.3f}\n'.format(metal_guess,
                     age_guess, mass_guess, A_V_guess, log_likely)          
     logger.info(start_str)  
+    sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, prior,
+                              loglargs=loglargs,
+                              logpargs=(metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper),
+                              threads=threads, ntemps=ntemps)
     
-    sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, logprior,
-                                      threads=threads, ntemps=ntemps)
-
     temp_start = []
     for i in range(ntemps):
         temp_start.append(start)
     temp_start = np.array(temp_start)    
     
     sampler.run_mcmc(temp_start, (nburn + steps))
-    samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))
-            
+    samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))        
     samples = samples[::thin]
     
     if threads > 1:
@@ -198,7 +172,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
     output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in A_V_precentiles]) + '\n'
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
-    log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]])
+    log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]], *loglargs)
     output_str += 'Log likelihood: {:.3f}\n'.format(log_likely)
     logger.info(output_str) 
         
@@ -303,53 +277,37 @@ def plot_samples(samples, catalogue, name, metal_range=(-2.4, 0.7), age_range=(0
     plt.xlabel('Age (Gyr)')
     plt.ylabel('[Z/H]') 
 
-
-    
-    
-def find_mass(mags, metal_guess, age_guess, A_V_guess):
-
+def find_a_mass(mags, metal_guess, age_guess):
     observed = []
     model = []
     for mag, mag_ivar2, reddening_grid, grid in mags:
-        observed.append((-mag + A_V_guess * reddening_grid(metal_guess, age_guess)[0][0] + grid(metal_guess, age_guess)[0][0]) * mag_ivar2**0.5 * 2 / 2.5)
-        model.append([mag_ivar2**0.5 * 2])
+        observed.append((mag - grid(metal_guess, age_guess)[0][0]) * mag_ivar2**0.5 / 2)
+        model.append([-2.5 * mag_ivar2**0.5 / 2, reddening_grid(metal_guess, age_guess)[0][0] * mag_ivar2**0.5 / 2])
     observed = np.array(observed)
     model = np.array(model)
-    mass = np.linalg.lstsq(model, observed, rcond=None)[0][0]
-    return mass
+    mass, a_v = np.linalg.lstsq(model, observed, rcond=None)[0]
+    return mass, a_v
 
-# a better way to do this could be to find the best A_V and mass for each age and metallicity
-def grid_search(mags, metal, metal_e, A_V, A_V_e, A_V2, A_V2_e, age_lower,
+
+def grid_search(mags, logl, loglargs, age_lower,
                 age_upper, metal_lower, metal_upper, A_V_lower, A_V_upper,
                 logger):
     best_likely = -np.inf
     best_guess = None
     
-    metal_range = np.arange(-2.5, 0.3, 0.25)
+    metal_range = np.arange(-2.7, 0.35, 0.1)
     metal_range = metal_range[(metal_range >= metal_lower) & (metal_range <= metal_upper)]
-    age_range = 10**np.arange(-2.5, 1.2, 0.1)
+    age_range = 10**np.arange(-2.9, 1.16, 0.05)
     age_range = age_range[(age_range >= age_lower) & (age_range <= age_upper)]
-    A_V_range = np.arange(0., max(A_V, A_V2) + max(A_V_e, A_V2_e) + 0.1, 0.1)
-    A_V_range = A_V_range[(A_V_range >= A_V_lower) & (A_V_range <= A_V_upper)]
         
-    metal_ivar2 = metal_e**-2. / 2
-    A_V_ivar2 = A_V_e**-2. / 2        
-    if A_V2_e:
-        A_V2_ivar2 = A_V2_e**-2. / 2
-            
     for metal_guess in metal_range:
-        for age_guess in age_range:
-            for A_V_guess in A_V_range:
-                mass_guess = find_mass(mags, metal_guess, age_guess, A_V_guess)
-                if A_V2_e:
-                    ln_likely = prob_bi((metal_guess, age_guess, mass_guess, A_V_guess), mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivar2)
-                else:
-                    ln_likely = prob((metal_guess, age_guess, mass_guess, A_V_guess), mags, metal, metal_ivar2, A_V, A_V_ivar2)
-                
-                if ln_likely > best_likely:
-                    best_guess = (metal_guess, age_guess, mass_guess, A_V_guess)
-                    best_likely = ln_likely
-                    logger.debug('{} {}'.format(best_guess, best_likely))
+        for age_guess in age_range:    
+            mass_guess, A_V_guess = find_a_mass(mags, metal_guess, age_guess)
+            ln_likely = logl((metal_guess, age_guess, mass_guess, A_V_guess), *loglargs)
+            if ln_likely > best_likely:
+                best_guess = (metal_guess, age_guess, mass_guess, A_V_guess)
+                best_likely = ln_likely
+                logger.debug('{} {}'.format(best_guess, best_likely))
                 
     return best_guess
     
@@ -358,7 +316,7 @@ if __name__ == '__main__':
     LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
-    plot = True
+    plot = False
     if plot:
         import matplotlib.pyplot as plt
         import matplotlib
@@ -380,16 +338,16 @@ if __name__ == '__main__':
     with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_reddening_mist_inter_mags.pickle', 'rb') as f:
         reddening_grids = pickle.load(f)    
     
-    age = 11
+    age = 12.6
     metal = -1
     metal_e = 0.2
     mass = 5
     A_V = 0.3
-    A_V_e = 0.1
-    A_V2 = 1
-    A_V2_e = 0.5
+    A_V_e = 0.03
+    A_V2 = 0.5
+    A_V2_e = 0.25
     
-    print('True values', age, metal, mass, A_V2)
+    print('True values', metal, age, mass, A_V2)
     
     mags = []
     
@@ -397,11 +355,10 @@ if __name__ == '__main__':
 
         mag = grids[band].ev(metal, age) - 2.5 * mass + A_V2 * reddening_grids[band].ev(metal, age)
         mags.append([band, mag, 0.02])
-#         print(band, mag, grids[band].ev(metal, age), - 2.5 * mass, A_V2 * reddening_grids[band].ev(metal, age))
-        
-#     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200, verbose=False)
-    
-    calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)
+
+    calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)
+#     calc_age_mass(mags, metal, metal_e, A_V2, A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)    
+#     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)    
     
     print()
     
