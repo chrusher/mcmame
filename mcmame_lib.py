@@ -2,6 +2,8 @@ import logging
 import os
 import pickle
 
+import numba
+
 import numpy as np
 from scipy import stats
 
@@ -24,15 +26,20 @@ def get_mag_sun(name, AB=True):
         return row['Vega']
     
 def prob_bi(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivar2):
-    lnprob = (metal - theta[0])**2 * metal_ivar2
-    red = -(A_V - theta[3])**2 * A_V_ivar2
-    red_2 = -(A_V2 - theta[3])**2 * A_V2_ivar2
+    delta = metal - theta[0]
+    lnprob = delta * delta * metal_ivar2
+    delta = A_V - theta[3]
+    red = -delta * delta * A_V_ivar2
+    delta = A_V2 - theta[3]
+    red_2 = -delta * delta * A_V2_ivar2
     lnprob += -np.logaddexp(red, red_2)
     for mag, mag_ivars2, reddening_grid, grid in mags:
-        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
+        delta = mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2]
+        lnprob += delta * delta * mag_ivars2
     return -lnprob
 
-def fast_prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
+def prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
+    delta = theta[0]
     delta = metal - theta[0]
     lnprob = delta * delta * metal_ivar2
     delta = A_V - theta[3]
@@ -40,15 +47,9 @@ def fast_prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
     for mag, mag_ivars2, reddening_grid, grid in mags:
         delta = mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2]
         lnprob += delta * delta * mag_ivars2
-    return -lnprob 
+    return -lnprob  
 
-def prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
-    lnprob = (metal - theta[0])**2 * metal_ivar2
-    lnprob += (A_V - theta[3])**2 * A_V_ivar2
-    for mag, mag_ivars2, reddening_grid, grid in mags:
-        lnprob += (mag - theta[3] * reddening_grid(theta[0], theta[1])[0][0] - grid(theta[0], theta[1])[0][0] + 2.5 * theta[2])**2 * mag_ivars2
-    return -lnprob       
-        
+# @numba.njit
 def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper):
     if theta[0] > metal_upper or theta[0] < metal_lower:
         return -np.inf
@@ -72,7 +73,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         logger = logging.getLogger()
         
     if metal is None:
-        metal = -1
+        metal = -1.
     if not metal_e:
         metal_e = np.inf
     if not A_V or not A_V_e:
@@ -112,9 +113,9 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         logl = prob_bi
         loglargs = (mags, metal, metal_ivar2, A_V, A_V_ivar2, A_V2, A_V2_ivars2)
     else:
-        logl = fast_prob
+        logl = prob
         loglargs = (mags, metal, metal_ivar2, A_V, A_V_ivar2)            
-            
+     
     metal_guess, age_guess, mass_guess, A_V_guess = grid_search(mags, logl, loglargs, age_lower, age_upper, metal_lower,
         metal_upper, A_V_lower, A_V_upper, logger)
 
@@ -131,7 +132,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
              start_array(A_V_guess, nwalkers, 0.05, A_V_lower, A_V_upper)]
     start = np.asarray(start).T
         
-    log_likely = logl([metal_guess, age_guess, mass_guess, A_V_guess], *loglargs)
+    log_likely = logl(np.array([metal_guess, age_guess, mass_guess, A_V_guess]), *loglargs)
     start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\nStarting log likelihood {:.3f}\n'.format(metal_guess,
                     age_guess, mass_guess, A_V_guess, log_likely)          
     logger.info(start_str)  
@@ -170,7 +171,7 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,2]), np.std(samples[:,2])) + '\n'
     output_str += 'A_V   ' + ' '.join(['{:.3f}'.format(red) for red in A_V_precentiles]) + '\n'
     output_str += '       {:.3f} \u00B1{:.3f}'.format(np.mean(samples[:,3]), np.std(samples[:,3])) + '\n'
-    log_likely = logl([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]], *loglargs)
+    log_likely = logl(np.array([Z_precentiles[2], age_precentiles[2], mass_precentiles[2], A_V_precentiles[2]]), *loglargs)
     output_str += 'Log likelihood: {:.3f}\n'.format(log_likely)
     logger.info(output_str) 
         

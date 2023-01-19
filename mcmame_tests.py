@@ -61,9 +61,9 @@ for band in ['u', 'g', 'r', 'i', 'z']:
 start = datetime.datetime.now()
 mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
 print(datetime.datetime.now() - start)
-start = datetime.datetime.now()
-mcmame.calc_age_mass(mags, None, None, None, None, grids, reddening_grids, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
-print(datetime.datetime.now() - start)
+# start = datetime.datetime.now()
+# mcmame.calc_age_mass(mags, None, None, None, None, grids, reddening_grids, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
+# print(datetime.datetime.now() - start)
 #     calc_age_mass(mags, metal, metal_e, A_V2, A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)    
 #     calc_age_mass(mags, metal, metal_e, A_V, A_V_e, A_V2=A_V2, A_V2_e=A_V2_e, plot=plot, threads=1, nwalkers=100, steps=200, nburn=200)    
 
