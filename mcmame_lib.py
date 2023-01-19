@@ -76,8 +76,9 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         metal = -1.
     if not metal_e:
         metal_e = np.inf
-    if not A_V or not A_V_e:
-        A_V = 0.1
+    if A_V is None:
+        A_V = 0
+    if not A_V_e:
         A_V_e = np.inf
     
     input_str = 'Input:\n'

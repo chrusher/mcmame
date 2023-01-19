@@ -47,15 +47,15 @@ def calc_age_metal(arguments):
         A_V = entry['A_V']
         A_V_e = entry['A_V_e']
     else:
-        A_V = 0
-        A_V_e = 0.01
+        A_V = None
+        A_V_e = None
         
     if 'A_V2' in entry.dtype.names and 'A_V2_e' in entry.dtype.names:
         A_V2 = entry['A_V2']
         A_V2_e = entry['A_V2_e']
     else:
-        A_V2 = 0
-        A_V2_e = 0
+        A_V2 = None
+        A_V2_e = None
 
     samples, Z_limits, age_limits, mass_limits, A_V_limits = mcmame_lib.calc_age_mass(magnitudes, Z_H, Z_H_e, A_V, A_V_e, grids=grids, reddening_grids=reddening_grids, threads=1, logger=logger, A_V2=A_V2, A_V2_e=A_V2_e, **priors)
 
