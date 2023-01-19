@@ -48,10 +48,13 @@ for band in ['u', 'g', 'r', 'i', 'z']:
 
     mag = grids[band].ev(metal, age) - 2.5 * mass + A_V2 * reddening_grids[band].ev(metal, age)
     mags.append([band, mag, 0.02])
-    
-start = datetime.datetime.now()
-mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=10000, nburn=200)
-print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))    
+
+    start = datetime.datetime.now()
+mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot)
+print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=10000, nburn=200)
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))    
 # start = datetime.datetime.now()
 # mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=64, steps=50000, nburn=2000, thin=200, sampler='em')
 # print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))  

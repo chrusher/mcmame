@@ -70,10 +70,10 @@ def em_prop(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, metal_lower, metal_
 # takes a list of magnitudes, and samples the posterior distributions of metallicity,
 # age, mass and extinction subject to the Gaussian priors on metallicity and extinction
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
-                  reddening_grids=None, plot=False, nwalkers=1000, steps=500, thin=10,
+                  reddening_grids=None, plot=False, nwalkers=64, steps=2560, thin=10,
                   keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.5,
                   age_lower=0.001, age_upper=15., A_V_lower=0., A_V_upper=np.inf, A_V2=None,
-                  A_V2_e=None, ntemps=8, nburn=500, logger=None, sampler='pt'):
+                  A_V2_e=None, ntemps=8, nburn=200, logger=None, sampler='pt'):
 
     if logger is None:
         logger = logging.getLogger()
@@ -156,26 +156,25 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
         temp_start = np.array(temp_start)    
         sampler.run_mcmc(temp_start, (nburn + steps))
         
-
-
-        s = sampler.chain[0]
-        import matplotlib.pyplot as plt        
-        fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
-        labels = ['[Fe/H]', 'age', 'mass', 'A_V']
-        for j in range(s.shape[2]):
-            print(np.mean([ptemcee.util.autocorr_integrated_time(s[i,:,j]) for i in range(s.shape[0])]))
+#         s = sampler.chain[0]
+#         import matplotlib.pyplot as plt        
+#         fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+#         labels = ['[Fe/H]', 'age', 'mass', 'A_V']
+#         for j in range(s.shape[2]):
+#             print(np.mean([ptemcee.util.autocorr_integrated_time(s[i,:,j]) for i in range(s.shape[0])]))
         
-            ax = axes[j]
-            for i in range(s.shape[0])[:1]:
-                ax.plot(s[i, :, j], "k", alpha=0.3)
-#             ax.set_xlim(0, len(s))
-            ax.set_ylabel(labels[j])
-            ax.yaxis.set_label_coords(-0.1, 0.5)            
+#             ax = axes[j]
+#             for i in range(s.shape[0])[:1]:
+#                 ax.plot(s[i, :, j], "k", alpha=0.3)
+# #             ax.set_xlim(0, len(s))
+#             ax.set_ylabel(labels[j])
+#             ax.yaxis.set_label_coords(-0.1, 0.5)            
            
-            
+ 
         samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))
         samples = samples[::thin]
- 
+        
+        logger.info('Thinning by {}; {} samples'.format(thin, samples.shape))    
         if threads > 1:
             sampler.pool.close()
            
@@ -187,20 +186,20 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
                                         moves=[(emcee.moves.DEMove(), 0.8),
                                                (emcee.moves.DESnookerMove(), 0.2)])
         sampler.run_mcmc(start, (nburn + steps))
-        print(sampler.get_autocorr_time())
+#         print(sampler.get_autocorr_time())
         
-        import matplotlib.pyplot as plt
-        fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
-        samples = sampler.get_chain()
-        labels = ['[Fe/H]', 'age', 'mass', 'A_V']
-        for i in range(4):
-            ax = axes[i]
-            ax.plot(samples[:, :, i], "k", alpha=0.3)
-            ax.set_xlim(0, len(samples))
-            ax.set_ylabel(labels[i])
-            ax.yaxis.set_label_coords(-0.1, 0.5)
+#         import matplotlib.pyplot as plt
+#         fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+#         samples = sampler.get_chain()
+#         labels = ['[Fe/H]', 'age', 'mass', 'A_V']
+#         for i in range(4):
+#             ax = axes[i]
+#             ax.plot(samples[:, :, i], "k", alpha=0.3)
+#             ax.set_xlim(0, len(samples))
+#             ax.set_ylabel(labels[i])
+#             ax.yaxis.set_label_coords(-0.1, 0.5)
 
-        axes[-1].set_xlabel("step number");
+#         axes[-1].set_xlabel("step number");
         
         samples = sampler.sampler.get_chain(discard=nburn, thin=thin, flat=True)
 
