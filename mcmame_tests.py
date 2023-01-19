@@ -7,6 +7,7 @@ import pickle
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from scipy import stats
 
 from astropy import table
@@ -15,24 +16,14 @@ from astropy.io import fits
 import mcmame_lib
 import mcmame
 
-# import matplotlib
-# matplotlib.rcParams['figure.dpi'] = 50
+mpl.rcParams['figure.dpi'] = 50
+
+
 
 LOG_FORMAT = "[%(asctime)s] %(levelname)8s %(name)s: %(message)s"
 logging.basicConfig(level=logging.INFO, format=LOG_FORMAT)
 
-plot = False
-
-
-metal = -0.6822533361523742
-metal_e = 0.1595040018637024
-mags = [['u', -6.6404734, 0.029137253712118956],
-        ['g', -8.340472, 0.01],
-        ['r', -9.140472, 0.01],
-        ['i', -9.5604725, 0.01],
-        ['z', -9.840472, 0.01]]
-A_V = 3.1 * 0.08
-A_V_e = 3.1 * 0.03
+plot = True
 
 with open(os.path.expanduser('~') + '/sluggs/sps_models/fsps_mist_inter_mags.pickle', 'rb') as f:
     grids = pickle.load(f)
@@ -57,10 +48,42 @@ for band in ['u', 'g', 'r', 'i', 'z']:
 
     mag = grids[band].ev(metal, age) - 2.5 * mass + A_V2 * reddening_grids[band].ev(metal, age)
     mags.append([band, mag, 0.02])
-
+    
 start = datetime.datetime.now()
-mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
-print(datetime.datetime.now() - start)
+mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=10000, nburn=200)
+print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))    
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=64, steps=50000, nburn=2000, thin=200, sampler='em')
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))  
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=32, steps=50 * 2000, nburn=1000, sampler='em')
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds())) 
+
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=100, nburn=200)
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=1000, nburn=200)
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=10000, nburn=200)
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, nwalkers=16, steps=100000, nburn=200)
+# print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
+
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
+# print(datetime.datetime.now() - start)
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=200, steps=500, nburn=200)
+# print(datetime.datetime.now() - start)
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=100, steps=1000, nburn=200)
+# print(datetime.datetime.now() - start)
+# start = datetime.datetime.now()
+# mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot, threads=1, nwalkers=1000, steps=500, nburn=500)
+# print(datetime.datetime.now() - start)
 # start = datetime.datetime.now()
 # mcmame.calc_age_mass(mags, None, None, None, None, grids, reddening_grids, plot=plot, threads=1, nwalkers=100, steps=500, nburn=200)
 # print(datetime.datetime.now() - start)

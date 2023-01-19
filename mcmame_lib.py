@@ -2,8 +2,6 @@ import logging
 import os
 import pickle
 
-import numba
-
 import numpy as np
 from scipy import stats
 
@@ -11,6 +9,8 @@ from astropy import table
 from astropy.io import fits
 
 import ptemcee
+import ptemcee.util
+import emcee
 
 # todo: don't hard code paths
 mag_sun = table.Table.read(os.path.expanduser('~') + '/sluggs/sps_models/mag_sun.fits')
@@ -49,7 +49,6 @@ def prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2):
         lnprob += delta * delta * mag_ivars2
     return -lnprob  
 
-# @numba.njit
 def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper):
     if theta[0] > metal_upper or theta[0] < metal_lower:
         return -np.inf
@@ -61,13 +60,20 @@ def prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_
         return 0.
     
     
+def em_prop(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper):
+    p = prior(theta, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper)
+    if p < 0:
+        return -np.inf
+    else:
+        return p + prob(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2)
+    
 # takes a list of magnitudes, and samples the posterior distributions of metallicity,
 # age, mass and extinction subject to the Gaussian priors on metallicity and extinction
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
                   reddening_grids=None, plot=False, nwalkers=1000, steps=500, thin=10,
                   keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.5,
                   age_lower=0.001, age_upper=15., A_V_lower=0., A_V_upper=np.inf, A_V2=None,
-                  A_V2_e=None, ntemps=8, nburn=500, logger=None):
+                  A_V2_e=None, ntemps=8, nburn=500, logger=None, sampler='pt'):
 
     if logger is None:
         logger = logging.getLogger()
@@ -120,7 +126,6 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     metal_guess, age_guess, mass_guess, A_V_guess = grid_search(mags, logl, loglargs, age_lower, age_upper, metal_lower,
         metal_upper, A_V_lower, A_V_upper, logger)
 
-
     def start_array(guess, nwalkers, scatter, lower, upper):
         start = guess + scatter * np.random.randn(nwalkers)
         start[start < lower] = lower
@@ -134,29 +139,74 @@ def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
     start = np.asarray(start).T
         
     log_likely = logl(np.array([metal_guess, age_guess, mass_guess, A_V_guess]), *loglargs)
-    start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\nStarting log likelihood {:.3f}\n'.format(metal_guess,
-                    age_guess, mass_guess, A_V_guess, log_likely)          
-    logger.info(start_str)  
-    sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, prior,
-                              loglargs=loglargs,
-                              logpargs=(metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper),
-                              threads=threads, ntemps=ntemps)
+    start_str = 'Starting at:\n{:.3f} {:.3f} {:.3f} {:.3f}\n'.format(metal_guess,
+                    age_guess, mass_guess, A_V_guess)
+    start_str += 'Starting log likelihood {:.3f}\n'.format(log_likely)
     
-    temp_start = []
-    for i in range(ntemps):
-        temp_start.append(start)
-    temp_start = np.array(temp_start)    
-    
-    sampler.run_mcmc(temp_start, (nburn + steps))
-    samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))        
-    samples = samples[::thin]
-    
-    if threads > 1:
-        sampler.pool.close()
+    if sampler == 'pt':
+        start_str += 'Using {} walkers and {} tempratures for {}+{} steps'.format(nwalkers, ntemps, nburn, steps)
+        logger.info(start_str)
+        sampler = ptemcee.Sampler(nwalkers, start.shape[-1], logl, prior,
+                                  loglargs=loglargs,
+                                  logpargs=(metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper),
+                                  threads=threads, ntemps=ntemps)
+        temp_start = []
+        for i in range(ntemps):
+            temp_start.append(start)
+        temp_start = np.array(temp_start)    
+        sampler.run_mcmc(temp_start, (nburn + steps))
         
+
+
+        s = sampler.chain[0]
+        import matplotlib.pyplot as plt        
+        fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+        labels = ['[Fe/H]', 'age', 'mass', 'A_V']
+        for j in range(s.shape[2]):
+            print(np.mean([ptemcee.util.autocorr_integrated_time(s[i,:,j]) for i in range(s.shape[0])]))
+        
+            ax = axes[j]
+            for i in range(s.shape[0])[:1]:
+                ax.plot(s[i, :, j], "k", alpha=0.3)
+#             ax.set_xlim(0, len(s))
+            ax.set_ylabel(labels[j])
+            ax.yaxis.set_label_coords(-0.1, 0.5)            
+           
+            
+        samples = sampler.chain[0, :, nburn:, :].reshape((-1, start.shape[-1]))
+        samples = samples[::thin]
+ 
+        if threads > 1:
+            sampler.pool.close()
+           
+    else:
+        start_str += 'Using {} walkers for {}+{} steps'.format(nwalkers, nburn, steps)
+        logger.info(start_str)
+        sampler = emcee.EnsembleSampler(nwalkers, start.shape[-1], em_prop, threads=threads, 
+                                        args=(mags, metal, metal_ivar2, A_V, A_V_ivar2, metal_lower, metal_upper, age_lower, age_upper, A_V_lower, A_V_upper),
+                                        moves=[(emcee.moves.DEMove(), 0.8),
+                                               (emcee.moves.DESnookerMove(), 0.2)])
+        sampler.run_mcmc(start, (nburn + steps))
+        print(sampler.get_autocorr_time())
+        
+        import matplotlib.pyplot as plt
+        fig, axes = plt.subplots(4, figsize=(10, 7), sharex=True)
+        samples = sampler.get_chain()
+        labels = ['[Fe/H]', 'age', 'mass', 'A_V']
+        for i in range(4):
+            ax = axes[i]
+            ax.plot(samples[:, :, i], "k", alpha=0.3)
+            ax.set_xlim(0, len(samples))
+            ax.set_ylabel(labels[i])
+            ax.yaxis.set_label_coords(-0.1, 0.5)
+
+        axes[-1].set_xlabel("step number");
+        
+        samples = sampler.sampler.get_chain(discard=nburn, thin=thin, flat=True)
+
     if keep_chain:
         np.save(open(str(keep_chain) + '_chain.npy', 'w'), np.asarray(sampler.chain))
-         
+
     norm_percentiles = stats.norm.cdf([-2, -1, 0, 1, 2]) * 100
     Z_precentiles = np.percentile(samples[:,0], norm_percentiles)
     age_precentiles = np.percentile(samples[:,1], norm_percentiles)
