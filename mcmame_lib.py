@@ -4,6 +4,7 @@ import pickle
 
 import numpy as np
 from scipy import stats
+from scipy import optimize
 
 from astropy import table
 from astropy.io import fits
@@ -326,7 +327,7 @@ def plot_samples(samples, catalogue, name, metal_range=(-2.4, 0.7), age_range=(0
     plt.xlabel('Age (Gyr)')
     plt.ylabel('[Z/H]') 
 
-def find_a_mass(mags, metal_guess, age_guess):
+def find_a_mass(mags, metal_guess, age_guess, A_V_lower, A_V_upper):
     observed = []
     model = []
     for mag, mag_ivar2, reddening_grid, grid in mags:
@@ -334,9 +335,9 @@ def find_a_mass(mags, metal_guess, age_guess):
         model.append([-2.5 * mag_ivar2**0.5 / 2, reddening_grid(metal_guess, age_guess)[0][0] * mag_ivar2**0.5 / 2])
     observed = np.array(observed)
     model = np.array(model)
-    mass, a_v = np.linalg.lstsq(model, observed, rcond=None)[0]
+#     mass, a_v = np.linalg.lstsq(model, observed, rcond=None)[0]
+    mass, a_v = optimize.lsq_linear(model, observed, bounds=[[-np.inf, A_V_lower], [np.inf, A_V_upper]]).x
     return mass, a_v
-
 
 def grid_search(mags, logl, loglargs, age_lower,
                 age_upper, metal_lower, metal_upper, A_V_lower, A_V_upper,
@@ -351,7 +352,7 @@ def grid_search(mags, logl, loglargs, age_lower,
         
     for metal_guess in metal_range:
         for age_guess in age_range:    
-            mass_guess, A_V_guess = find_a_mass(mags, metal_guess, age_guess)
+            mass_guess, A_V_guess = find_a_mass(mags, metal_guess, age_guess, A_V_lower, A_V_upper)
             ln_likely = logl((metal_guess, age_guess, mass_guess, A_V_guess), *loglargs)
             if ln_likely > best_likely:
                 best_guess = (metal_guess, age_guess, mass_guess, A_V_guess)
