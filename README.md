@@ -1,5 +1,5 @@
 # mcmame
-MCMC spectral energy distribution code
+Monte Carlo Markov Chain spectral energy distribution code. The name is short for Monte Carlo Metallicity, Age, Mass and Extinction.
 
 Code to use MCMC to sample the mass, age, metallicity and extinction postieror distributions of a stellar population subject to the constraints provided by photometry and optionally metallicity and extinction.
 
