@@ -72,7 +72,7 @@ def em_prop(theta, mags, metal, metal_ivar2, A_V, A_V_ivar2, metal_lower, metal_
 # age, mass and extinction subject to the Gaussian priors on metallicity and extinction
 def calc_age_mass(magnitudes, metal, metal_e, A_V, A_V_e, grids=None,
                   reddening_grids=None, plot=False, nwalkers=64, steps=2560, thin=10,
-                  keep_chain=False, threads=4, metal_lower=-3.0, metal_upper=0.5,
+                  keep_chain=False, threads=4, metal_lower=-2.5, metal_upper=0.5,
                   age_lower=0.001, age_upper=15., A_V_lower=0., A_V_upper=np.inf, A_V2=None,
                   A_V2_e=None, ntemps=8, nburn=200, logger=None, sampler='pt'):
 
