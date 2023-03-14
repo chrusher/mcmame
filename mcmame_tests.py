@@ -14,7 +14,6 @@ from astropy import table
 from astropy.io import fits
 
 import mcmame_lib
-import mcmame
 
 mpl.rcParams['figure.dpi'] = 50
 
@@ -49,7 +48,7 @@ for band in ['u', 'g', 'r', 'i', 'z']:
     mag = grids[band].ev(metal, age) - 2.5 * mass + A_V2 * reddening_grids[band].ev(metal, age)
     mags.append([band, mag, 0.02])
 
-    start = datetime.datetime.now()
+start = datetime.datetime.now()
 mcmame_lib.calc_age_mass(mags, None, None, None, None, plot=plot)
 print('Runtime: {} s\n'.format((datetime.datetime.now() - start).total_seconds()))
 # start = datetime.datetime.now()
