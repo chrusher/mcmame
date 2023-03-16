@@ -194,7 +194,7 @@ if __name__ == '__main__':
                 logging.info('Sampling ' + entry['ident'])
             
         else:
-            with fits.open(output + '.fits') as hdul:
+            with fits.open(output + '.fits', memmap=False) as hdul:
                 row_table = table.Table.read(hdul[1])
             skipped.append(row_table[0])
             logging.info('Skipping ' + entry['ident'])
